@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os, optparse, re
+import sys, os, optparse, re
 import pygame
 import random
 
@@ -11,19 +11,23 @@ def main(options):
     # init screen
     pygame.init()
 
+    opts = 0
     if options.fullscreen:
-        screen = pygame.display.set_mode((options.width, options.height), pygame.FULLSCREEN)
-    else:
-        screen = pygame.display.set_mode((options.width, options.height))
+        opts |= pygame.FULLSCREEN
+
+    if options.hwsurface:
+        opts |= pygame.DOUBLEBUF | pygame.HWSURFACE
+
+    screen = pygame.display.set_mode((options.width, options.height), opts)
 
     pygame.display.set_caption("OCM Scores")
     pygame.mouse.set_visible(0)
     pygame.key.set_repeat(1, options.fps)
 
     clock = pygame.time.Clock()
-    font1 = pygame.font.Font(options.basedir + "C64_Pro_Mono_v1.0-STYLE.ttf", options.font_size)
-    font2 = pygame.font.Font(options.basedir + "C64_Pro_Mono_v1.0-STYLE.ttf",
-                             int(round(options.font_size * options.font_size_factor)))
+    font_filename = options.basedir + "C64_Pro_Mono_v1.0-STYLE.ttf"
+    font1 = pygame.font.Font(font_filename, options.font_size)
+    font2 = pygame.font.Font(font_filename, int(round(options.font_size * options.font_size_factor)))
 
     running = True
 
@@ -44,8 +48,6 @@ def main(options):
 
     # main loop
     while running:
-        clock.tick(options.fps)
-
         # handle events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:  # quit
@@ -139,13 +141,23 @@ def main(options):
         else: # quarter == 2 or quarter == 3: # scroll away line 2
             if abs(x_pos2) < options.width:
                 screen.blit(line2, (int(x_pos2), options.y_pos2))
-            x_pos2 = x_pos2 + x_speed
-            x_speed = x_speed + x_accel
+            x_pos2 += x_speed
+            x_speed += x_accel
 
-        # show screen
+        # show screen and tryp to keep at the target FPS
         pygame.display.flip()
+        
+        if options.use_busy_loop:
+            clock.tick_busy_loop(options.fps)
+        else:
+            clock.tick(options.fps)
 
-        frame = frame + options.speed
+        if options.show_fps and quarter_step % (options.fps // 3) == 0:
+            print("%8.4f\r" % clock.get_fps()),
+            sys.stdout.flush()
+            
+        # go to next frame
+        frame += options.speed
 
         if (options.debug_end_frame != None) and (frame >= options.debug_end_frame):
             frame = frames_max
@@ -154,6 +166,7 @@ def main(options):
             frame = 0
             text_pos = (text_pos + 2) % len(text) # get next pair of text lines
             
+
         # end of main loop
 
     # end of main
@@ -163,27 +176,46 @@ if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option("-f", "--full-screen", action="store_true",
                       dest="fullscreen", help="toogle fullscreen mode")
-    parser.add_option("-g", "--geometry", type="string", default="640x480", action="store",
+
+    parser.add_option("--hw-surface", action="store_true",
+                      dest="hwsurface", help="use hardware acceleration for pygame surfaces")
+
+    parser.add_option("--use-busy-loop", default=False, action="store",
+                      dest="use_busy_loop", help="report actual fps to stdout")
+
+    parser.add_option("--geometry", type="string", default="640x480", action="store",
                       dest="geometry", help="screen size in [width]x[height]")
+
     parser.add_option("--y-pos1", type="int", default=410, action="store",
                       dest="y_pos1", help="y position of row 1")
+
     parser.add_option("--y-pos2", type="int", default=440, action="store",
                       dest="y_pos2", help="y position of row 2")
+
     parser.add_option("--fps", type="int", default=30, action="store",
                       dest="fps", help="frames per second")
-    parser.add_option("-s", "--speed", type="int", default=3, action="store",
+
+    parser.add_option("--show-fps", default=False, action="store",
+                      dest="show_fps", help="report actual fps to stdout")
+
+    parser.add_option("--speed", type="int", default=3, action="store",
                       dest="speed", help="scroll speed in pixels per frame")
+
     parser.add_option("--font-size", type="int", default=22, action="store",
                       dest="font_size", help="font size")
+
     parser.add_option("--font-size-factor", type="float", default=1.5, action="store",
                       dest="font_size_factor", help="ratio between font sizes of row 1 and 2")
-    parser.add_option("-t", "--text-file", type="string", default="scoroller.txt", action="store",
+
+    parser.add_option("--text-file", type="string", default="scoroller.txt", action="store",
                       dest="text_file", help="text filename")
+
     parser.add_option("--text-start-random", default=True, action="store",
                       dest="text_start_random", help="start scrolling by first line or by a random line")
 
     parser.add_option("--debug-start-frame", type="int", default=None, action="store",
                       dest="debug_start_frame", help="debig start frame")
+
     parser.add_option("--debug-end-frame", type="int", default=None, action="store",
                       dest="debug_end_frame", help="debig end frame")
 
