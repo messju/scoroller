@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import os, optparse, re
 import pygame
+import random
 
 def main(options):
 
@@ -10,27 +12,37 @@ def main(options):
     pygame.init()
 
     if options.fullscreen:
-        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        (options.width, options.height) = screen.get_size()
+        screen = pygame.display.set_mode((options.width, options.height), pygame.FULLSCREEN)
     else:
         screen = pygame.display.set_mode((options.width, options.height))
-    
-    pygame.display.set_caption("Scores")
+
+    pygame.display.set_caption("OCM Scores")
     pygame.mouse.set_visible(0)
     pygame.key.set_repeat(1, options.fps)
-    
+
     clock = pygame.time.Clock()
-    font = pygame.font.Font(options.basedir + "C64_Pro_Mono_v1.0-STYLE.ttf", options.font_size)
-    
-    if options.y_pos == None:
-        options.y_pos = int((options.height - options.font_size) / 2)
+    font1 = pygame.font.Font(options.basedir + "C64_Pro_Mono_v1.0-STYLE.ttf", options.font_size)
+    font2 = pygame.font.Font(options.basedir + "C64_Pro_Mono_v1.0-STYLE.ttf",
+                             int(round(options.font_size * options.font_size_factor)))
+
     running = True
-    x_pos = options.width
+
+    # for each score set (pair of two lines) we show one scene of screen_width*2 frames
+    # each scene is separated in 4 quarters (one quarter = screen_width/2 frames)
+    # line 1 behaves identically in all 4 quarters (it's a simple scroller)
+    # line 2 behaves differently in each quarter
+    #    1st quarter: build up line two frome the center of screen
+    #    2nd quarter: do nothing, just show line 2 centered
+    #    3rd and 4th quarter: scroll away line2 using an accelerated scrolling
 
     text = []
     text_pos = 0
     stat = None
 
+    frame = 0
+    frames_max = options.width * 2 # scene duration
+
+    # main loop
     while running:
         clock.tick(options.fps)
 
@@ -38,72 +50,147 @@ def main(options):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:  # quit
                 running = False
-                    
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     pygame.event.post(pygame.event.Event(pygame.QUIT))
 
-        # check if file changed or file was not read before
-        old_stat = stat
-        stat = os.stat(options.text_file)
-        if (not old_stat) or (stat.st_mtime != old_stat.st_mtime) \
-           or (stat.st_size != stat.st_size):
+        if frame == 0:
+            # setup
 
-            f = open(options.text_file, "r")
-            text = re.split("\r?\n", f.read())
-            text = [line.strip() for line in text if line.strip() != ''] # remove empty lines
-            text_pos = 0
-            x_pos = options.width
+            # check if file changed or file was not read before
+            old_stat = stat
+            stat = os.stat(options.text_file)
+            if (not old_stat) or (stat.st_mtime != old_stat.st_mtime) \
+               or (stat.st_size != stat.st_size):
+
+                f = open(options.text_file, "r")
+                text = re.split("\r?\n", f.read()) # split lines (handles windows \r if necessary)
+                text = [line.strip() for line in text if line.strip() != ''] # remove empty lines
+
+                if options.text_start_random:
+                    text_pos = random.randint(0, len(text) - 1)
+                    text_pos = text_pos - text_pos % 2
+                else:
+                    text_pos = 0
+
+            # we have one surface per text line (line1 and line2).
+            # each surface has the full screen width, the full text's
+            # height. the text is placed centered on that surface.
+            
+            # line1 is the game title (odd line numbers in the text file)
+            text1 = font1.render(text[text_pos], 1, options.text_color)
+            line1 = pygame.Surface((options.width, text1.get_height()))
+            line1.fill(options.bg_color)
+            line1.blit(text1, ((options.width - text1.get_width() ) // 2, 0))
+
+            # line2 is the game score and the champions name (even line numbers in the text file)
+            text2 = font2.render(text[text_pos + 1], 1, options.text_color)
+            line2 = pygame.Surface((options.width, text2.get_height()))
+            line2.fill(options.bg_color)
+            line2.blit(text2, ((options.width - text2.get_width() ) // 2, 0))
+
+            # temp surfaces used in 1st quarter
+            temp1 = pygame.Surface((options.width // 2, text2.get_height()))
+            temp1.fill(options.bg_color)
+            temp2 = pygame.Surface((options.width // 2, text2.get_height()))
+            temp2.fill(options.bg_color)
+
+            # skip a few frames in the beginning if neither of the two lines is very wide
+            #   this avoids too long pauses between two scenes
+            frame = (options.width - max(text1.get_width(), text2.get_width())) // 2
+
+            # accelerated scroller params for 2nd half of the scene
+            x_pos2 = 0
+            x_speed = 10.5
+            x_accel = -0.35
+
+            # flip scrolling direction in 2nd half:
+            #    1st score line leaves to the left, 2nd leaves to right, 3rd to the left...
+            if text_pos // 2 % 2 == 1:
+                x_speed = -x_speed
+                x_accel = -x_accel
+
+            if options.debug_start_frame != None:
+                frame = options.debug_start_frame
 
         # draw scene
-        screen.fill((0x00, 0x00, 0x00))
 
-        x = x_pos
-        y = options.y_pos
-        t = text_pos
-        while x < options.width:
-            if len(text) > 0:
-                chunk = font.render(text[t] + options.separator, 1, options.text_color)
-                # print "%d %d %s" % (t, x, text[t])
+        quarter = frame * 4 // frames_max         # ranging from 0..3
+        quarter_step = frame % (frames_max // 4)  # ranging i.e. 0..319 in each quarter
 
-                screen.blit(chunk, (x, y))
-                x += chunk.get_width()
-                if x < 0:
-                    text_pos = (text_pos + 1) % len(text)
-                    x_pos = x
-                elif x >= options.width:
-                    break
+        screen.fill(options.bg_color)
 
-                t = (t + 1) % len(text) 
-            else:
-                break
+        # that is all to handle the game title scrolling
+        screen.blit(line1, (options.width - frame, options.y_pos1))
 
-        x_pos = x_pos - options.speed
+        if quarter == 0: # build up line 2 from the center
+            x = options.width // 2 - quarter_step
+            temp1.blit(line2, (x, 0))
+            screen.blit(temp1, (0, options.y_pos2))
+
+            x = - options.width + quarter_step
+            temp2.blit(line2, (x, 0))
+            screen.blit(temp2, (options.width // 2, options.y_pos2))
+
+        elif quarter == 1: # just show line 2
+            screen.blit(line2, (0, options.y_pos2))
+
+        else: # quarter == 2 or quarter == 3: # scroll away line 2
+            if abs(x_pos2) < options.width:
+                screen.blit(line2, (int(x_pos2), options.y_pos2))
+            x_pos2 = x_pos2 + x_speed
+            x_speed = x_speed + x_accel
 
         # show screen
         pygame.display.flip()
-        
+
+        frame = frame + options.speed
+
+        if (options.debug_end_frame != None) and (frame >= options.debug_end_frame):
+            frame = frames_max
+
+        if frame >= frames_max:
+            frame = 0
+            text_pos = (text_pos + 2) % len(text) # get next pair of text lines
+            
+        # end of main loop
+
+    # end of main
+
 if __name__ == '__main__':
     options_error = False
     parser = optparse.OptionParser()
     parser.add_option("-f", "--full-screen", action="store_true",
                       dest="fullscreen", help="toogle fullscreen mode")
-    parser.add_option("-g", "--geometry", type="string", default="320x240", action="store",
+    parser.add_option("-g", "--geometry", type="string", default="640x480", action="store",
                       dest="geometry", help="screen size in [width]x[height]")
-    parser.add_option("-y", "--y-pos", type="int", default=None, action="store",
-                      dest="y_pos", help="y position")
-    parser.add_option("--fps", type="int", default=100, action="store",
+    parser.add_option("--y-pos1", type="int", default=410, action="store",
+                      dest="y_pos1", help="y position of row 1")
+    parser.add_option("--y-pos2", type="int", default=440, action="store",
+                      dest="y_pos2", help="y position of row 2")
+    parser.add_option("--fps", type="int", default=30, action="store",
                       dest="fps", help="frames per second")
-    parser.add_option("-s", "--speed", type="int", default=1, action="store",
+    parser.add_option("-s", "--speed", type="int", default=3, action="store",
                       dest="speed", help="scroll speed in pixels per frame")
-    parser.add_option("--font-size", type="int", default=36, action="store",
+    parser.add_option("--font-size", type="int", default=22, action="store",
                       dest="font_size", help="font size")
+    parser.add_option("--font-size-factor", type="float", default=1.5, action="store",
+                      dest="font_size_factor", help="ratio between font sizes of row 1 and 2")
     parser.add_option("-t", "--text-file", type="string", default="scoroller.txt", action="store",
                       dest="text_file", help="text filename")
+    parser.add_option("--text-start-random", default=True, action="store",
+                      dest="text_start_random", help="start scrolling by first line or by a random line")
+
+    parser.add_option("--debug-start-frame", type="int", default=None, action="store",
+                      dest="debug_start_frame", help="debig start frame")
+    parser.add_option("--debug-end-frame", type="int", default=None, action="store",
+                      dest="debug_end_frame", help="debig end frame")
+
     (options, args) = parser.parse_args()
 
-    options.separator = u' ••• '
     options.text_color = (0xff, 0xff, 0xff)
+    options.bg_color = (0x00, 0x00, 0x00)
 
     match = re.search("^(\d+)x(\d+)$", options.geometry) # split geometry string
     if match:
@@ -113,7 +200,6 @@ if __name__ == '__main__':
         options_error = True
 
     options.basedir = os.path.dirname(os.path.abspath(__file__)) + "/"
-    options.images = args
 
     if options_error:
         parser.print_usage()
