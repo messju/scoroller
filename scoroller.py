@@ -185,7 +185,7 @@ if __name__ == '__main__':
     parser.add_option("--geometry", type="string", default="640x480", action="store",
                       dest="geometry", help="screen size in [width]x[height]")
 
-    parser.add_option("--y-pos1", type="int", default=410, action="store",
+    parser.add_option("--y-pos1", type="int", default=360, action="store",
                       dest="y_pos1", help="y position of row 1")
 
     parser.add_option("--y-pos2", type="int", default=440, action="store",
@@ -200,10 +200,10 @@ if __name__ == '__main__':
     parser.add_option("--speed", type="int", default=3, action="store",
                       dest="speed", help="scroll speed in pixels per frame")
 
-    parser.add_option("--font-size", type="int", default=22, action="store",
+    parser.add_option("--font-size", type="int", default=44, action="store",
                       dest="font_size", help="font size")
 
-    parser.add_option("--font-size-factor", type="float", default=1.5, action="store",
+    parser.add_option("--font-size-factor", type="float", default=0.7, action="store",
                       dest="font_size_factor", help="ratio between font sizes of row 1 and 2")
 
     parser.add_option("--text-file", type="string", default="scoroller.txt", action="store",
