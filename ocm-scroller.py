@@ -17,7 +17,12 @@ def main(options):
     if options.hwsurface:
         opts |= pygame.DOUBLEBUF | pygame.HWSURFACE
 
-    screen = pygame.display.set_mode((options.width, options.height), opts)
+    if options.fullscreen:
+        screen = pygame.display.set_mode((0, 0), opts)
+        options.screen_resolution =(screen.get_width(), screen.get_height())
+    else:
+        screen = pygame.display.set_mode(options.screen_resolution, opts)
+
 
     pygame.display.set_caption("OCM Scores")
     pygame.mouse.set_visible(0)
@@ -120,7 +125,8 @@ def main(options):
         quarter = frame * 4 // frames_max         # ranging from 0..3
         quarter_step = frame % (frames_max // 4)  # ranging i.e. 0..319 in each quarter
 
-        screen.fill(options.bg_color)
+        screen.fill(options.debug_color)
+        pygame.draw.rect(screen, options.bg_color, ((0,0), (options.width, options.height)))
 
         # that is all to handle the game title scrolling
         screen.blit(line1, (options.width - frame, options.y_pos1))
@@ -173,7 +179,7 @@ def main(options):
 if __name__ == '__main__':
     options_error = False
     parser = optparse.OptionParser()
-    parser.add_option("-f", "--full-screen", action="store_true",
+    parser.add_option("-f", "--full-screen", default=False, action="store_true",
                       dest="fullscreen", help="toogle fullscreen mode")
 
     parser.add_option("--hw-surface", action="store_true",
@@ -222,7 +228,9 @@ if __name__ == '__main__':
 
     options.text_color = (0xff, 0xff, 0xff)
     options.bg_color = (0x00, 0x00, 0x00)
+    options.debug_color = (0xc0, 0x00, 0x00)
 
+    options.screen_resolution = (800, 600)
     match = re.search("^(\d+)x(\d+)$", options.geometry) # split geometry string
     if match:
         options.width = int(match.group(1))
