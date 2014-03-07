@@ -22,7 +22,8 @@ def main(options):
         options.screen_resolution =(screen.get_width(), screen.get_height())
     else:
         screen = pygame.display.set_mode(options.screen_resolution, opts)
-
+        screen.fill(options.debug_color)
+        screen.set_clip((0, 0), (options.width, options.height))
 
     pygame.display.set_caption("OCM Scores")
     pygame.mouse.set_visible(0)
@@ -125,8 +126,7 @@ def main(options):
         quarter = frame * 4 // frames_max         # ranging from 0..3
         quarter_step = frame % (frames_max // 4)  # ranging i.e. 0..319 in each quarter
 
-        screen.fill(options.debug_color)
-        pygame.draw.rect(screen, options.bg_color, ((0,0), (options.width, options.height)))
+        screen.fill(options.bg_color)
 
         # that is all to handle the game title scrolling
         screen.blit(line1, (options.width - frame, options.y_pos1))
