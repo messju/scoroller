@@ -206,7 +206,7 @@ if __name__ == '__main__':
     parser.add_option("--font-size-factor", type="float", default=0.7, action="store",
                       dest="font_size_factor", help="ratio between font sizes of row 1 and 2")
 
-    parser.add_option("--text-file", type="string", default="scoroller.txt", action="store",
+    parser.add_option("--text-file", type="string", default="ocm-scores.txt", action="store",
                       dest="text_file", help="text filename")
 
     parser.add_option("--text-start-random", default=True, action="store",
