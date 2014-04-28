@@ -188,7 +188,7 @@ if __name__ == '__main__':
     parser.add_option("--use-busy-loop", default=False, action="store",
                       dest="use_busy_loop", help="report actual fps to stdout")
 
-    parser.add_option("--geometry", type="string", default="640x480", action="store",
+    parser.add_option("--geometry", type="string", default="800x600", action="store",
                       dest="geometry", help="screen size in [width]x[height]")
 
     parser.add_option("--y-pos1", type="int", default=360, action="store",
